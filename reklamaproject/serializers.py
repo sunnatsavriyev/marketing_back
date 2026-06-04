@@ -1,11 +1,14 @@
 from rest_framework import serializers
 from .models import (Advertisement, Station, MetroLine, Position, AdvertisementArchive, 
                      Ijarachi, Turi, ShartnomaSummasi, ShartnomaSummasiArchive,Depo, HarakatTarkibi, TarkibPosition, TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi,
-                     TarkibAdvertisement, TarkibAdvertisementArchive)
+                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov)
 from rest_framework.fields import CurrentUserDefault
 from datetime import date, timedelta,datetime
 from rest_framework import status
 from rest_framework.response import Response
+import base64
+import uuid
+from django.core.files.base import ContentFile
 
 from django_filters import rest_framework as filters
 from decimal import Decimal
@@ -192,17 +195,199 @@ class CreateAdvertisementSerializer(AdvertisementSerializer):
             })
         return attrs
 
- 
-
-   
-class UpdateAdvertisementSerializer(serializers.ModelSerializer):
-    position = serializers.PrimaryKeyRelatedField(
-        queryset=Position.objects.all(),
-        required=False
+class StationPositionBulkSerializer(serializers.Serializer):
+    station_id = serializers.PrimaryKeyRelatedField(queryset=Station.objects.all(), help_text="Bekat (Station) ID si")
+    positions = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text="Shu bekatdagi bo'sh joylar (Position) ID lari"
     )
 
-    # ForeignKey integer qabul qiladi
-    Ijarachi = serializers.IntegerField(write_only=True, required=False)
+    def validate_positions(self, value):
+        # value is a list of position IDs (integers)
+        invalid_ids = []
+        occupied_positions = []
+        
+        for pos_id in value:
+            try:
+                pos = Position.objects.get(id=pos_id)
+                # Check if it has an advertisement
+                if Advertisement.objects.filter(position=pos).exists():
+                    occupied_positions.append(f"{pos.station.name if pos.station else 'Noma`lum bekat'} - {pos.number}-joy")
+            except Position.DoesNotExist:
+                invalid_ids.append(str(pos_id))
+                
+        error_msgs = []
+        if invalid_ids:
+            error_msgs.append(f"Quyidagi ID lari ko'rsatilgan joylar bazada mavjud emas: {', '.join(invalid_ids)}.")
+        if occupied_positions:
+            error_msgs.append(f"Quyidagi joylar bo'sh emas (oldin reklama o'rnatilgan): {', '.join(occupied_positions)}.")
+            
+        if error_msgs:
+            raise serializers.ValidationError(" ".join(error_msgs))
+            
+        # Return the actual Position instances so it matches previous logic
+        return list(Position.objects.filter(id__in=value))
+
+
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            if data.startswith('data:image'):
+                try:
+                    format, imgstr = data.split(';base64,')
+                    ext = format.split('/')[-1]
+                    id = uuid.uuid4()
+                    data = ContentFile(base64.b64decode(imgstr), name=f"{id}.{ext}")
+                except Exception as e:
+                    raise serializers.ValidationError(f"Rasm base64 decodingda xato: {str(e)}")
+            else:
+                try:
+                    decoded = base64.b64decode(data)
+                    id = uuid.uuid4()
+                    data = ContentFile(decoded, name=f"{id}.png")
+                except Exception:
+                    pass
+        return super().to_internal_value(data)
+
+class Base64FileField(serializers.FileField):
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            if ';base64,' in data:
+                try:
+                    format, filestr = data.split(';base64,')
+                    ext = 'bin'
+                    if '/' in format:
+                        ext = format.split('/')[-1]
+                    id = uuid.uuid4()
+                    data = ContentFile(base64.b64decode(filestr), name=f"{id}.{ext}")
+                except Exception as e:
+                    raise serializers.ValidationError(f"Fayl base64 decodingda xato: {str(e)}")
+            else:
+                try:
+                    decoded = base64.b64decode(data)
+                    id = uuid.uuid4()
+                    data = ContentFile(decoded, name=f"{id}.pdf")
+                except Exception:
+                    pass
+        return super().to_internal_value(data)
+
+class BulkAdvertisementItemSerializer(serializers.Serializer):
+    bekatlar = StationPositionBulkSerializer(many=True, help_text="Qaysi bekatlar va ulardagi qaysi joylarga qo'shilishi")
+    Reklama_nomi = serializers.CharField(max_length=255, default='Reklama nomi')
+    Qurilma_turi_id = serializers.PrimaryKeyRelatedField(queryset=Turi.objects.all(), required=False, allow_null=True)
+    Ijarachi_id = serializers.PrimaryKeyRelatedField(queryset=Ijarachi.objects.all(), required=False, allow_null=True)
+    Shartnoma_raqami = serializers.CharField(max_length=100, required=False, allow_null=True)
+    Shartnoma_muddati_boshlanishi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"])
+    Shartnoma_tugashi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"])
+    O_lchov_birligi = serializers.ChoiceField(choices=[('dona', 'Dona'), ('kv_metr', 'Kv metr'), ('komplekt', 'Komplekt')], default='dona')
+    Qurilma_narxi = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
+    Egallagan_maydon = serializers.DecimalField(max_digits=10, decimal_places=2, default=1)
+    Shartnoma_summasi = serializers.DecimalField(max_digits=20, decimal_places=2, default=0)
+    photo = Base64ImageField(required=False, allow_null=True)
+    Shartnoma_fayl = Base64FileField(required=False, allow_null=True)
+
+class BulkAdvertisementCreateSerializer(serializers.Serializer):
+    items = BulkAdvertisementItemSerializer(many=True)
+
+
+
+class TolovPositionSerializer(serializers.Serializer):
+    station_id = serializers.PrimaryKeyRelatedField(
+        queryset=Station.objects.all(),
+        help_text="Bekat ID si"
+    )
+    positions = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text="Pozitsiya ID lari ro'yxati"
+    )
+
+class OmmaviyTolovCreateSerializer(serializers.Serializer):
+    ijarachi_id = serializers.PrimaryKeyRelatedField(queryset=Ijarachi.objects.all(), help_text="Ijarachini tanlang")
+    umumiy_summa = serializers.DecimalField(max_digits=20, decimal_places=2, required=False, allow_null=True)
+    har_biri_uchun_summa = serializers.DecimalField(max_digits=20, decimal_places=2, required=False, allow_null=True)
+    comment = serializers.CharField(required=False, allow_blank=True)
+    reklamalar = TolovPositionSerializer(many=True, help_text="Qaysi bekatlardagi reklamalar uchun to'lov qilinyapti")
+
+    def validate(self, attrs):
+        umumiy = attrs.get('umumiy_summa')
+        har_biri = attrs.get('har_biri_uchun_summa')
+        if not umumiy and not har_biri:
+            raise serializers.ValidationError("Yo umumiy_summa yoki har_biri_uchun_summa kiritilishi shart.")
+        if umumiy and har_biri:
+            raise serializers.ValidationError("Faqatgina bittasini (yoki umumiy_summa, yoki har_biri_uchun_summa) kiritish mumkin.")
+
+        ijarachi = attrs.get('ijarachi_id')
+        reklamalar_data = attrs.get('reklamalar', [])
+        
+        errors = []
+        all_position_ids = []
+        for bekat_data in reklamalar_data:
+            station = bekat_data['station_id']
+            pos_ids = bekat_data['positions']
+            for pos_id in pos_ids:
+                try:
+                    pos = Position.objects.get(id=pos_id)
+                except Position.DoesNotExist:
+                    errors.append(f"Joy ID={pos_id} bazada mavjud emas.")
+                    continue
+                
+                # Joy bo'sh bo'lsa — xato
+                if not Advertisement.objects.filter(position=pos).exists():
+                    errors.append(f"{station.name} - {pos.number}-joy bo'sh (reklamasi yo'q), to'lov qilib bo'lmaydi.")
+                    continue
+                
+                # Reklama bu ijarachiga tegishli emasmi?
+                ad = Advertisement.objects.filter(position=pos).first()
+                if ad.Ijarachi != ijarachi:
+                    ijarachi_nomi = ad.Ijarachi.name if ad.Ijarachi else "Noma'lum"
+                    errors.append(f"{station.name} - {pos.number}-joydagi reklama \"{ad.Reklama_nomi}\" bu ijarachiga tegishli emas (tegishli: {ijarachi_nomi}).")
+                    continue
+                
+                all_position_ids.append(pos_id)
+        
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        if not all_position_ids:
+            raise serializers.ValidationError("Hech qanday to'g'ri pozitsiya tanlanmadi.")
+            
+        attrs['validated_position_ids'] = all_position_ids
+        return attrs
+
+
+class OmmaviyTolovSerializer(serializers.ModelSerializer):
+    ijarachi_nomi = serializers.CharField(source='ijarachi.name', read_only=True)
+    qamrab_olingan_joylar_soni = serializers.SerializerMethodField()
+    umumiy_summa = serializers.SerializerMethodField()
+    har_biri_uchun_summa = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OmmaviyTolov
+        fields = ['id', 'ijarachi', 'ijarachi_nomi', 'umumiy_summa', 'har_biri_uchun_summa', 'comment', 'created_at', 'qamrab_olingan_joylar_soni']
+        extra_kwargs = {'ijarachi': {'required': False}}
+
+    def get_qamrab_olingan_joylar_soni(self, obj):
+        return obj.qismlari.count()
+
+    def get_umumiy_summa(self, obj):
+        count = obj.qismlari.count()
+        if obj.umumiy_summa:
+            return obj.umumiy_summa
+        elif obj.har_biri_uchun_summa and count > 0:
+            return obj.har_biri_uchun_summa * count
+        return 0
+
+    def get_har_biri_uchun_summa(self, obj):
+        count = obj.qismlari.count()
+        if obj.har_biri_uchun_summa:
+            return obj.har_biri_uchun_summa
+        elif obj.umumiy_summa and count > 0:
+            return round(obj.umumiy_summa / count, 2)
+        return 0
+
+
+
+class UpdateAdvertisementSerializer(serializers.ModelSerializer):
     ijarachi = IjarachiSerializers(read_only=True)
 
     # Date fields

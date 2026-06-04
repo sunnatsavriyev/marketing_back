@@ -1,12 +1,16 @@
 from rest_framework import viewsets, permissions, filters
 from rest_framework.views import APIView
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive
+import json
+import logging
+logger = logging.getLogger(__name__)
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov
 from .serializers import (
     MetroLineSerializer, StationSerializer,
     PositionSerializer, AdvertisementSerializer, AdvertisementArchiveSerializer, 
     CreateAdvertisementSerializer, ExportAdvertisementSerializer,AdvertisementStatisticsSerializer,
     IjarachiSerializers, TuriSerializer, ShartnomaSummasiSerializer, UpdateAdvertisementSerializer,TarkibShartnomaSummasiSerializer,IjarachiUnifiedStatisticsQuerySerializer,
-     TarkibAdvertisementSerializer, TarkibAdvertisementArchiveSerializer,CreateTarkibAdvertisementSerializer,UpdateTarkibAdvertisementSerializer,TarkibPositionSerializer, DepoSerializer, HarakatTarkibiSerializer
+    TarkibAdvertisementSerializer, TarkibAdvertisementArchiveSerializer,CreateTarkibAdvertisementSerializer,UpdateTarkibAdvertisementSerializer,TarkibPositionSerializer, DepoSerializer, HarakatTarkibiSerializer,
+    BulkAdvertisementCreateSerializer, OmmaviyTolovCreateSerializer, OmmaviyTolovSerializer
 )
 from .pagination import CustomPagination
 from rest_framework import status
@@ -3054,3 +3058,290 @@ class AllPaymentsHistoryView(APIView):
             "total_sum": sum(item["summa"] for item in result),
             "payments": result
         })
+
+
+from django.db import transaction
+
+class BulkAdvertisementViewSet(viewsets.ModelViewSet):
+    queryset = Advertisement.objects.select_related(
+        'position', 'position__station', 'Ijarachi', 'Qurilma_turi'
+    ).all().order_by('-id')
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return BulkAdvertisementCreateSerializer
+        return AdvertisementSerializer
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['Reklama_nomi', 'Shartnoma_raqami', 'position__station__name']
+    pagination_class = None  # Grouping makes queryset pagination difficult, so we return all grouped
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        grouped_ads = {}
+        for ad in queryset:
+            # We group by common fields that identify a "bulk" creation batch
+            key = (
+                ad.Reklama_nomi,
+                ad.Ijarachi_id,
+                ad.Shartnoma_raqami,
+                ad.Shartnoma_muddati_boshlanishi,
+                ad.Shartnoma_tugashi
+            )
+            
+            if key not in grouped_ads:
+                grouped_ads[key] = {
+                    "Reklama_nomi": ad.Reklama_nomi,
+                    "Ijarachi_nomi": ad.Ijarachi.name if ad.Ijarachi else None,
+                    "Ijarachi_id": ad.Ijarachi_id,
+                    "Qurilma_turi": ad.Qurilma_turi.qurilmaturi if ad.Qurilma_turi else None,
+                    "Qurilma_turi_id": ad.Qurilma_turi_id,
+                    "Shartnoma_raqami": ad.Shartnoma_raqami,
+                    "Shartnoma_muddati_boshlanishi": ad.Shartnoma_muddati_boshlanishi.strftime("%Y-%m-%d") if ad.Shartnoma_muddati_boshlanishi else None,
+                    "Shartnoma_tugashi": ad.Shartnoma_tugashi.strftime("%Y-%m-%d") if ad.Shartnoma_tugashi else None,
+                    "O_lchov_birligi": ad.O_lchov_birligi,
+                    "Qurilma_narxi": float(ad.Qurilma_narxi) if ad.Qurilma_narxi else 0,
+                    "Egallagan_maydon": float(ad.Egallagan_maydon) if ad.Egallagan_maydon else 0,
+                    "Shartnoma_summasi": float(ad.Shartnoma_summasi) if ad.Shartnoma_summasi else 0,
+                    "created_at": ad.created_at.strftime("%Y-%m-%d %H:%M:%S") if ad.created_at else None,
+                    "positions": []
+                }
+            
+            if ad.position:
+                grouped_ads[key]["positions"].append({
+                    "advertisement_id": ad.id,
+                    "position_id": ad.position.id,
+                    "bekat": ad.position.station.name if ad.position.station else None,
+                    "joy": ad.position.number
+                })
+        
+        # Faqatgina "bulk" (ya'ni 1 tadan ko'p joyga qilingan) reklamalarni qaytarish
+        result = [group for group in grouped_ads.values() if len(group["positions"]) > 1]
+        
+        return Response(result)
+
+    def create(self, request, *args, **kwargs):
+        raw_data = request.data
+        parsed_data = None
+        
+        items_data = raw_data.get('items')
+        if isinstance(items_data, str):
+            try:
+                parsed_items = json.loads(items_data)
+                if isinstance(parsed_items, dict) and 'items' in parsed_items:
+                    parsed_items = parsed_items['items']
+                
+                if isinstance(parsed_items, list):
+                    for i, item in enumerate(parsed_items):
+                        photo_key = f"items[{i}][photo]"
+                        if photo_key in request.FILES:
+                            item['photo'] = request.FILES[photo_key]
+                        else:
+                            photo_key_dot = f"items[{i}].photo"
+                            if photo_key_dot in request.FILES:
+                                item['photo'] = request.FILES[photo_key_dot]
+
+                        fayl_key = f"items[{i}][Shartnoma_fayl]"
+                        if fayl_key in request.FILES:
+                            item['Shartnoma_fayl'] = request.FILES[fayl_key]
+                        else:
+                            fayl_key_dot = f"items[{i}].Shartnoma_fayl"
+                            if fayl_key_dot in request.FILES:
+                                item['Shartnoma_fayl'] = request.FILES[fayl_key_dot]
+                    
+                    parsed_data = {'items': parsed_items}
+            except Exception as e:
+                return Response({
+                    "detail": f"JSON string parse error in 'items' field: {str(e)}",
+                    "received_items_value": str(items_data)[:500]
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer_data = parsed_data if parsed_data is not None else raw_data
+        
+        serializer = self.get_serializer(data=serializer_data)
+        if not serializer.is_valid():
+            logger.info("BulkAdvertisement validation errors: %s", serializer.errors)
+            logger.info("BulkAdvertisement raw request data: %s", str(raw_data)[:1000])
+            readable_parsed_data = {}
+            if isinstance(serializer_data, dict):
+                readable_parsed_data = {
+                    'items': [
+                        {
+                            k: (v.name if hasattr(v, 'name') else str(v)[:100] if not isinstance(v, (dict, list)) else v)
+                            for k, v in item.items()
+                        } if isinstance(item, dict) else item
+                        for item in serializer_data.get('items', [])
+                    ] if isinstance(serializer_data.get('items'), list) else str(serializer_data.get('items'))
+                }
+            return Response({
+                "errors": serializer.errors,
+                "parsed_data_by_backend": readable_parsed_data,
+                "raw_content_type": request.content_type
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        items = serializer.validated_data.get('items', [])
+        
+        created_ads = []
+        errors = []
+
+        try:
+            with transaction.atomic():
+                for index, item in enumerate(items):
+                    bekatlar = item.get('bekatlar', [])
+                    if not bekatlar:
+                        errors.append(f"Item {index + 1}: Bekatlar va joylar kiritilmagan.")
+                        continue
+                    
+                    for bekat_data in bekatlar:
+                        positions = bekat_data.get('positions', [])
+                        for pos in positions:
+                            ad = Advertisement(
+                                user=request.user,
+                                position=pos,
+                                Reklama_nomi=item.get('Reklama_nomi', 'Reklama nomi'),
+                                Qurilma_turi=item.get('Qurilma_turi_id'),
+                                Ijarachi=item.get('Ijarachi_id'),
+                                Shartnoma_raqami=item.get('Shartnoma_raqami'),
+                                Shartnoma_muddati_boshlanishi=item.get('Shartnoma_muddati_boshlanishi'),
+                                Shartnoma_tugashi=item.get('Shartnoma_tugashi'),
+                                O_lchov_birligi=item.get('O_lchov_birligi', 'dona'),
+                                Qurilma_narxi=item.get('Qurilma_narxi', 0),
+                                Egallagan_maydon=item.get('Egallagan_maydon', 1),
+                                Shartnoma_summasi=item.get('Shartnoma_summasi', 0),
+                            )
+                            if 'photo' in item and item['photo']:
+                                ad.photo = item['photo']
+                            if 'Shartnoma_fayl' in item and item['Shartnoma_fayl']:
+                                ad.Shartnoma_fayl = item['Shartnoma_fayl']
+                                
+                            ad.save()
+                            created_ads.append(ad.id)
+
+            if errors and not created_ads:
+                return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+            created_instances = Advertisement.objects.filter(id__in=created_ads)
+            serializer = AdvertisementSerializer(created_instances, many=True)
+
+            return Response({
+                "message": f"Muvaffaqiyatli {len(created_ads)} ta reklama joylarga biriktirildi.",
+                "created_ads": serializer.data,
+                "errors": errors
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class OmmaviyTolovViewSet(viewsets.ModelViewSet):
+    queryset = OmmaviyTolov.objects.all().order_by('-id')
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['ijarachi__name', 'comment']
+    filterset_fields = ['ijarachi_id']
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return OmmaviyTolovCreateSerializer
+        return OmmaviyTolovSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        ijarachi = data['ijarachi_id']
+        umumiy = data.get('umumiy_summa')
+        har_biri = data.get('har_biri_uchun_summa')
+        comment = data.get('comment', '')
+        position_ids = data.get('validated_position_ids', [])
+
+        ads = Advertisement.objects.filter(Ijarachi=ijarachi, position_id__in=position_ids)
+            
+        ad_count = ads.count()
+        if umumiy:
+            summa_per_ad = float(umumiy) / ad_count
+        else:
+            summa_per_ad = float(har_biri)
+            
+        try:
+            with transaction.atomic():
+                ommaviy_tolov = OmmaviyTolov.objects.create(
+                    ijarachi=ijarachi,
+                    umumiy_summa=umumiy,
+                    har_biri_uchun_summa=har_biri,
+                    comment=comment,
+                    created_by=request.user
+                )
+                
+                for ad in ads:
+                    ShartnomaSummasi.objects.create(
+                        advertisement=ad,
+                        ommaviy_tolov=ommaviy_tolov,
+                        Shartnomasummasi=summa_per_ad,
+                        comment=comment
+                    )
+                    
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+        return Response(OmmaviyTolovSerializer(ommaviy_tolov).data, status=status.HTTP_201_CREATED)
+        
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        data = serializer.validated_data
+        ijarachi = data.get('ijarachi_id', instance.ijarachi)
+        umumiy = data.get('umumiy_summa', instance.umumiy_summa)
+        har_biri = data.get('har_biri_uchun_summa', instance.har_biri_uchun_summa)
+        comment = data.get('comment', instance.comment)
+        reklamalar_data = data.get('reklamalar', [])
+
+        position_ids = []
+        for bekat_data in reklamalar_data:
+            position_ids.extend([pos.id for pos in bekat_data.get('positions', [])])
+            
+        try:
+            with transaction.atomic():
+                instance.ijarachi = ijarachi
+                instance.umumiy_summa = umumiy
+                instance.har_biri_uchun_summa = har_biri
+                instance.comment = comment
+                instance.save()
+                
+                if position_ids:
+                    # Agar joylar o'zgartirilgan bo'lsa, eskilarni o'chirib, yangidan qo'shamiz
+                    instance.qismlari.all().delete()
+                    ads = Advertisement.objects.filter(Ijarachi=ijarachi, position_id__in=position_ids)
+                    if not ads.exists():
+                        raise Exception("Tanlangan joylarda tegishli reklamalar topilmadi.")
+                    
+                    ad_count = ads.count()
+                    summa_per_ad = float(umumiy) / ad_count if umumiy else float(har_biri)
+                    
+                    for ad in ads:
+                        ShartnomaSummasi.objects.create(
+                            advertisement=ad,
+                            ommaviy_tolov=instance,
+                            Shartnomasummasi=summa_per_ad,
+                            comment=comment
+                        )
+                else:
+                    # Agar faqat summa o'zgargan bo'lsa va pozitsiyalar kiritilmagan bo'lsa,
+                    # oldingi pozitsiyalar qolaveradi, ularning qiymatini o'zgartiramiz
+                    old_parts = instance.qismlari.all()
+                    ad_count = old_parts.count()
+                    if ad_count > 0:
+                        summa_per_ad = float(umumiy) / ad_count if umumiy else float(har_biri)
+                        old_parts.update(Shartnomasummasi=summa_per_ad, comment=comment)
+
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+        return Response(OmmaviyTolovSerializer(instance).data)

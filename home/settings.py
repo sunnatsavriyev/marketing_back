@@ -84,8 +84,8 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
     "https://marketing-metro-official.vercel.app",
     "https://marketing.tm1.uz",
     "https://abbos.tm1.uz",
-    "http://88.88.150.151:9000",
-    "http://88.88.150.150:5173",
+    "http://88.88.0.151:9000",
+    "http://88.88.5.15:5173",
     'https://reklama-project-0r66.onrender.com',
 
 ])
@@ -105,8 +105,8 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
     "https://marketing-metro-official.vercel.app",
     "https://marketing.tm1.uz",
     "https://abbos.tm1.uz",
-    "http://88.88.150.151:9000",
-    "http://88.88.150.150:5173",
+    "http://88.88.0.151:9000",
+    "http://88.88.5.15:5173",
     'https://reklama-project-0r66.onrender.com',
 ])
 

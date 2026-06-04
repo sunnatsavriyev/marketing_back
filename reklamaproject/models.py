@@ -107,6 +107,17 @@ class Turi(models.Model):
 
 
 
+class OmmaviyTolov(models.Model):
+    ijarachi = models.ForeignKey(Ijarachi, on_delete=models.CASCADE, related_name="ommaviy_tolovlar")
+    umumiy_summa = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    har_biri_uchun_summa = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"Ommaviy to'lov: {self.ijarachi.name} - {self.created_at.strftime('%Y-%m-%d')}"
+
 class ShartnomaSummasi(models.Model):
     advertisement = models.ForeignKey(
         "Advertisement",
@@ -114,6 +125,13 @@ class ShartnomaSummasi(models.Model):
         related_name="tolovlar",
         null=True,  
         blank=True 
+    )
+    ommaviy_tolov = models.ForeignKey(
+        OmmaviyTolov,
+        on_delete=models.CASCADE,
+        related_name="qismlari",
+        null=True,
+        blank=True
     )
     Shartnomasummasi = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     comment = models.TextField(null=True, blank=True)

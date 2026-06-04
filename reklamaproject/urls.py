@@ -3,7 +3,8 @@ from .views import (MetroLineViewSet, StationViewSet, PositionViewSet, Advertise
         get_me, ExpiredAdvertisementViewSet, Stationimage, AllAdvertisementsViewSet, CheckAuthView, IjarachiViewSet,TuriViewSet,ShartnomaSummasiViewSet,
         AdvertisementStatisticsView,StatisticsCountAPI, AdvertisementStatisticsViewSet, IjarachiStatisticsViewSet, IjarachiSumStatisticsViewSet,TarkibAdvertisementArchiveViewSet,
     TarkibExpiredAdvertisementViewSet,DepoViewSet,TarkibAdvertisementViewSet,TarkibPositionViewSet,TarkibAllAdvertisementViewSet,TarkibViewSet,TarkibShardnomaSummasiViewSet,
-    TarkibStatisticsViewSet,IjarachiTarkibStatisticsViewSet, IjarachiTarkibSumStatisticsViewSet, IjarachiUnifiedStatisticsViewSet,AllPaymentsHistoryView
+    TarkibStatisticsViewSet,IjarachiTarkibStatisticsViewSet, IjarachiTarkibSumStatisticsViewSet, IjarachiUnifiedStatisticsViewSet,AllPaymentsHistoryView,
+    BulkAdvertisementViewSet, OmmaviyTolovViewSet
 )
 from django.urls import path
 router = DefaultRouter()
@@ -31,6 +32,9 @@ router.register(r'all-tarkib-advertisements', TarkibAllAdvertisementViewSet, bas
 router.register(r'tarkib-advertisement-statistics', TarkibStatisticsViewSet, basename='tarkib-advertisement-statistics')
 router.register(r'ijarachi-tarkib-statistics', IjarachiTarkibStatisticsViewSet, basename='ijarachi-tarkib-statistics')
 router.register(r'ijarachi-tarkib-sum-statistics', IjarachiTarkibSumStatisticsViewSet, basename='ijarachi-tarkib-sum-statistics')
+router.register(r'bulk-advertisements', BulkAdvertisementViewSet, basename='bulk-advertisements')
+router.register(r'ommaviy-tolovlar', OmmaviyTolovViewSet, basename='ommaviy-tolovlar')
+# router.register(r'umumiy-advertisements', BulkAdvertisementCreateView.as_view(), basename='umumiy-advertisement-create')
 # router.register(r'ijarachi-unified-statistics', IjarachiUnifiedStatisticsViewSet, basename='ijarachi-unified-statistics')
 
 urlpatterns =  [
@@ -48,9 +52,6 @@ urlpatterns =  [
     path("payments-history/", AllPaymentsHistoryView.as_view(), name="all-payments-history"),
     
 
-
     # path("stations/<int:pk>/search-number/", StationSearchAllNumbers.as_view(), name="station-search-number"),
 
-]+router.urls 
-
-
+] + router.urls
