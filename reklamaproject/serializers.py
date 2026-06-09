@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (Advertisement, Station, MetroLine, Position, AdvertisementArchive, 
                      Ijarachi, Turi, ShartnomaSummasi, ShartnomaSummasiArchive,Depo, HarakatTarkibi, TarkibPosition, TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi,
-                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy)
+                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov)
 from rest_framework.fields import CurrentUserDefault
 from datetime import date, timedelta,datetime
 from rest_framework import status
@@ -471,18 +471,27 @@ class PositionSerializer(serializers.ModelSerializer):
     advertisement = AdvertisementSerializer(read_only=True)
     status = serializers.SerializerMethodField()
     created_by = serializers.CharField(source="created_by.username", read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
+    created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
+    photo = Base64ImageField(required=False, allow_null=True)
+    maydoni_birligi_bilan = serializers.SerializerMethodField()
 
     class Meta:
         model = Position
         fields = [
             'id', 'station', 'station_id', 'number',
+            'maydoni', 'o_lchov_birligi', 'maydoni_birligi_bilan', 'photo',
             'advertisement', 'status',
             'created_at', 'created_by'
         ]
 
     def get_status(self, obj):
         return getattr(obj, "advertisement", None) is not None
+
+    def get_maydoni_birligi_bilan(self, obj):
+        if not obj.maydoni:
+            return ""
+        birlik = obj.get_o_lchov_birligi_display() if obj.o_lchov_birligi else ""
+        return f"{obj.maydoni} {birlik}".strip()
 
     def update(self, instance, validated_data):
         # update paytida station o‘zgarmasligi kerak
@@ -916,12 +925,14 @@ class IjarachiUnifiedStatisticsQuerySerializer(serializers.Serializer):
 
 class IjaragaJoySerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
-    photo = Base64ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(use_url=True, required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     maydoni_birligi_bilan = serializers.SerializerMethodField()
+    joylashuvi = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
-        model = IjaragaJoy
+        model = Position
         fields = [
             'id', 'joylashuvi', 'maydoni', 'o_lchov_birligi', 
             'maydoni_birligi_bilan', 'photo', 'status', 
@@ -930,8 +941,16 @@ class IjaragaJoySerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by']
 
     def get_maydoni_birligi_bilan(self, obj):
+        if not obj.maydoni:
+            return ""
         birlik = obj.get_o_lchov_birligi_display() if obj.o_lchov_birligi else ""
         return f"{obj.maydoni} {birlik}".strip()
+
+    def get_joylashuvi(self, obj):
+        return f"{obj.station.name} - {obj.number}-joy" if obj.station else f"{obj.number}-joy"
+
+    def get_status(self, obj):
+        return "bo'sh"
 
 
         

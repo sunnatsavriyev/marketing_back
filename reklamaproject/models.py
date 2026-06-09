@@ -33,6 +33,20 @@ class Station(models.Model):
 class Position(models.Model):
     station = models.ForeignKey(Station, on_delete=models.SET_NULL,null=True, related_name='positions')
     number = models.PositiveIntegerField(help_text="Joy raqami, masalan: 1, 2, 3")
+    maydoni = models.DecimalField(max_digits=10, decimal_places=2, help_text="Joy maydoni yoki miqdori", null=True, blank=True)
+    o_lchov_birligi = models.CharField(
+        max_length=50, 
+        choices=[
+            ('dona', 'Dona'),
+            ('kv_metr', 'Kv metr'),
+            ('komplekt', 'Komplekt'),
+        ], 
+        default='kv_metr', 
+        null=True, 
+        blank=True,
+        help_text="O'lchov birligi"
+    )
+    photo = models.ImageField(upload_to='position_photos/', null=True, blank=True, help_text="Joy rasmi")
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     def __str__(self):
@@ -297,31 +311,3 @@ class AdvertisementArchive(models.Model):
         return f"{self.Reklama_nomi} ({self.position})"
     
 
-
-class IjaragaJoy(models.Model):
-    STATUS_CHOICES = [
-        ("bo'sh", "Bo'sh"),
-        ("band", "Band"),
-    ]
-    O_LCHOV_CHOICES = [
-        ('dona', 'Dona'),
-        ('kv_metr', 'Kv metr'),
-        ('komplekt', 'Komplekt'),
-    ]
-    joylashuvi = models.CharField(max_length=255, help_text="Qayer ekani (bekat nomi yoki boshqa joy)")
-    maydoni = models.DecimalField(max_digits=10, decimal_places=2, help_text="Joy maydoni yoki miqdori",null=True, blank=True)
-    o_lchov_birligi = models.CharField(max_length=50, choices=O_LCHOV_CHOICES, default='kv_metr', help_text="O'lchov birligi")
-    photo = models.ImageField(upload_to='ijaraga_joylar/', null=True, blank=True, help_text="Joy rasmi")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="bo'sh", help_text="Statusi (bo'sh yoki band)")
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.joylashuvi} - {self.maydoni} {self.get_o_lchov_birligi_display()} ({self.status})"
-
-    class Meta:
-        verbose_name = "Ijaraga beriladigan joy"
-        verbose_name_plural = "Ijaraga beriladigan joylar"
-
-
-    

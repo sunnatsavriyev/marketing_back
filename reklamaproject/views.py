@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 import json
 import logging
 logger = logging.getLogger(__name__)
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov
 from .serializers import (
     MetroLineSerializer, StationSerializer,
     PositionSerializer, AdvertisementSerializer, AdvertisementArchiveSerializer, 
@@ -3347,24 +3347,9 @@ class OmmaviyTolovViewSet(viewsets.ModelViewSet):
         return Response(OmmaviyTolovSerializer(instance).data)
 
 
-class IjaragaJoyViewSet(viewsets.ModelViewSet):
-    queryset = IjaragaJoy.objects.all()
+class IjaragaJoyViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Position.objects.filter(advertisement__isnull=True).select_related('station').order_by('-id')
     serializer_class = IjaragaJoySerializer
+    permission_classes = [permissions.AllowAny]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['joylashuvi']
-    filterset_fields = ['status']
-
-    def get_permissions(self):
-        if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user and user.is_authenticated:
-            return IjaragaJoy.objects.all().order_by('-id')
-        # Anonymous users only see available ("bo'sh") spaces
-        return IjaragaJoy.objects.filter(status="bo'sh").order_by('-id')
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+    search_fields = ['station__name', 'number']
