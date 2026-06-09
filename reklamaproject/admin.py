@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi,TarkibShartnomaSummasi, Turi, ShartnomaSummasi,HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive,Depo
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi,TarkibShartnomaSummasi, Turi, ShartnomaSummasi,HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive,Depo, IjaragaJoy
 
 @admin.register(MetroLine)
 class MetroLineAdmin(admin.ModelAdmin):
@@ -224,6 +224,16 @@ class TarkibAdvertisementArchiveAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return True
+
+
+@admin.register(IjaragaJoy)
+class IjaragaJoyAdmin(admin.ModelAdmin):
+    list_display = ['id', 'joylashuvi', 'maydoni', 'o_lchov_birligi', 'status', 'created_at', 'created_by']
+    list_filter = ['status', 'created_at']
+    search_fields = ['joylashuvi']
+    verbose_name = _("Ijaraga beriladigan joy")
+    verbose_name_plural = _("Ijaraga beriladigan joylar")
+
 
     
     

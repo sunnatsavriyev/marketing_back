@@ -3,14 +3,14 @@ from rest_framework.views import APIView
 import json
 import logging
 logger = logging.getLogger(__name__)
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy
 from .serializers import (
     MetroLineSerializer, StationSerializer,
     PositionSerializer, AdvertisementSerializer, AdvertisementArchiveSerializer, 
     CreateAdvertisementSerializer, ExportAdvertisementSerializer,AdvertisementStatisticsSerializer,
     IjarachiSerializers, TuriSerializer, ShartnomaSummasiSerializer, UpdateAdvertisementSerializer,TarkibShartnomaSummasiSerializer,IjarachiUnifiedStatisticsQuerySerializer,
     TarkibAdvertisementSerializer, TarkibAdvertisementArchiveSerializer,CreateTarkibAdvertisementSerializer,UpdateTarkibAdvertisementSerializer,TarkibPositionSerializer, DepoSerializer, HarakatTarkibiSerializer,
-    BulkAdvertisementCreateSerializer, OmmaviyTolovCreateSerializer, OmmaviyTolovSerializer
+    BulkAdvertisementCreateSerializer, OmmaviyTolovCreateSerializer, OmmaviyTolovSerializer, IjaragaJoySerializer
 )
 from .pagination import CustomPagination
 from rest_framework import status
@@ -3345,3 +3345,22 @@ class OmmaviyTolovViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
         return Response(OmmaviyTolovSerializer(instance).data)
+
+
+class IjaragaJoyViewSet(viewsets.ModelViewSet):
+    queryset = IjaragaJoy.objects.all()
+    serializer_class = IjaragaJoySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['joylashuvi']
+    filterset_fields = ['status']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user and user.is_authenticated:
+            return IjaragaJoy.objects.all().order_by('-id')
+        # Anonymous users only see available ("bo'sh") spaces
+        return IjaragaJoy.objects.filter(status="bo'sh").order_by('-id')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)

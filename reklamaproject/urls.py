@@ -4,7 +4,7 @@ from .views import (MetroLineViewSet, StationViewSet, PositionViewSet, Advertise
         AdvertisementStatisticsView,StatisticsCountAPI, AdvertisementStatisticsViewSet, IjarachiStatisticsViewSet, IjarachiSumStatisticsViewSet,TarkibAdvertisementArchiveViewSet,
     TarkibExpiredAdvertisementViewSet,DepoViewSet,TarkibAdvertisementViewSet,TarkibPositionViewSet,TarkibAllAdvertisementViewSet,TarkibViewSet,TarkibShardnomaSummasiViewSet,
     TarkibStatisticsViewSet,IjarachiTarkibStatisticsViewSet, IjarachiTarkibSumStatisticsViewSet, IjarachiUnifiedStatisticsViewSet,AllPaymentsHistoryView,
-    BulkAdvertisementViewSet, OmmaviyTolovViewSet
+    BulkAdvertisementViewSet, OmmaviyTolovViewSet, IjaragaJoyViewSet
 )
 from django.urls import path
 router = DefaultRouter()
@@ -34,7 +34,7 @@ router.register(r'ijarachi-tarkib-statistics', IjarachiTarkibStatisticsViewSet, 
 router.register(r'ijarachi-tarkib-sum-statistics', IjarachiTarkibSumStatisticsViewSet, basename='ijarachi-tarkib-sum-statistics')
 router.register(r'bulk-advertisements', BulkAdvertisementViewSet, basename='bulk-advertisements')
 router.register(r'ommaviy-tolovlar', OmmaviyTolovViewSet, basename='ommaviy-tolovlar')
-# router.register(r'umumiy-advertisements', BulkAdvertisementCreateView.as_view(), basename='umumiy-advertisement-create')
+router.register(r'ijaraga-joylar', IjaragaJoyViewSet, basename='ijaraga-joylar')
 # router.register(r'ijarachi-unified-statistics', IjarachiUnifiedStatisticsViewSet, basename='ijarachi-unified-statistics')
 
 urlpatterns =  [

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (Advertisement, Station, MetroLine, Position, AdvertisementArchive, 
                      Ijarachi, Turi, ShartnomaSummasi, ShartnomaSummasiArchive,Depo, HarakatTarkibi, TarkibPosition, TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi,
-                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov)
+                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy)
 from rest_framework.fields import CurrentUserDefault
 from datetime import date, timedelta,datetime
 from rest_framework import status
@@ -912,5 +912,27 @@ class IjarachiUnifiedStatisticsQuerySerializer(serializers.Serializer):
         default=False,
         help_text="Agar True bo'lsa PDF hosil qilinadi"
     ) 
+
+
+class IjaragaJoySerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    photo = Base64ImageField(required=False, allow_null=True)
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    maydoni_birligi_bilan = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IjaragaJoy
+        fields = [
+            'id', 'joylashuvi', 'maydoni', 'o_lchov_birligi', 
+            'maydoni_birligi_bilan', 'photo', 'status', 
+            'created_at', 'created_by', 'created_by_username'
+        ]
+        read_only_fields = ['created_by']
+
+    def get_maydoni_birligi_bilan(self, obj):
+        birlik = obj.get_o_lchov_birligi_display() if obj.o_lchov_birligi else ""
+        return f"{obj.maydoni} {birlik}".strip()
+
+
         
 
