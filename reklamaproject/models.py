@@ -33,6 +33,7 @@ class Station(models.Model):
 class Position(models.Model):
     station = models.ForeignKey(Station, on_delete=models.SET_NULL,null=True, related_name='positions')
     number = models.PositiveIntegerField(help_text="Joy raqami, masalan: 1, 2, 3")
+    turi = models.ForeignKey('Turi', on_delete=models.SET_NULL, null=True, blank=True, related_name='positions', help_text="Reklama qurilma turi")
     maydoni = models.DecimalField(max_digits=10, decimal_places=2, help_text="Joy maydoni yoki miqdori", null=True, blank=True)
     o_lchov_birligi = models.CharField(
         max_length=50, 

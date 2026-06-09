@@ -169,11 +169,11 @@ class Stationimage(APIView):
 
 
 class PositionViewSet(viewsets.ModelViewSet):
-    queryset = Position.objects.select_related('station').prefetch_related('advertisement').all().order_by('-created_at')
+    queryset = Position.objects.select_related('station', 'turi').prefetch_related('advertisement').all().order_by('-created_at')
     serializer_class = PositionSerializer
     permission_classes = [AuthenticatedCRUDPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
-    filterset_fields = ['station']
+    filterset_fields = ['station', 'turi']
     search_fields = ['number']
     pagination_class = CustomPagination
 
@@ -3348,8 +3348,25 @@ class OmmaviyTolovViewSet(viewsets.ModelViewSet):
 
 
 class IjaragaJoyViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Position.objects.filter(advertisement__isnull=True).select_related('station').order_by('-id')
+    queryset = Position.objects.filter(advertisement__isnull=True).select_related('station', 'turi').order_by('-id')
     serializer_class = IjaragaJoySerializer
     permission_classes = [permissions.AllowAny]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['station__name', 'number']
+    filterset_fields = ['turi']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        group_by = request.query_params.get('group_by')
+
+        if group_by == 'turi':
+            grouped = {}
+            for pos in queryset:
+                key = pos.turi.qurilmaturi if pos.turi else "Noma'lum tur"
+                if key not in grouped:
+                    grouped[key] = []
+                grouped[key].append(IjaragaJoySerializer(pos, context={'request': request}).data)
+            return Response(grouped)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

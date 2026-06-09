@@ -460,7 +460,6 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 class PositionSerializer(serializers.ModelSerializer):
     station = serializers.CharField(source="station.name", read_only=True)
     station_id = serializers.PrimaryKeyRelatedField(
@@ -468,6 +467,12 @@ class PositionSerializer(serializers.ModelSerializer):
         source="station",
         write_only=True
     )
+    turi = serializers.PrimaryKeyRelatedField(
+        queryset=Turi.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    turi_name = serializers.CharField(source="turi.qurilmaturi", read_only=True, allow_null=True)
     advertisement = AdvertisementSerializer(read_only=True)
     status = serializers.SerializerMethodField()
     created_by = serializers.CharField(source="created_by.username", read_only=True)
@@ -479,6 +484,7 @@ class PositionSerializer(serializers.ModelSerializer):
         model = Position
         fields = [
             'id', 'station', 'station_id', 'number',
+            'turi', 'turi_name',
             'maydoni', 'o_lchov_birligi', 'maydoni_birligi_bilan', 'photo',
             'advertisement', 'status',
             'created_at', 'created_by'
@@ -494,7 +500,7 @@ class PositionSerializer(serializers.ModelSerializer):
         return f"{obj.maydoni} {birlik}".strip()
 
     def update(self, instance, validated_data):
-        # update paytida station o‘zgarmasligi kerak
+        # update paytida station o'zgarmasligi kerak
         validated_data.pop("station", None)
         return super().update(instance, validated_data)
 
@@ -922,7 +928,6 @@ class IjarachiUnifiedStatisticsQuerySerializer(serializers.Serializer):
         help_text="Agar True bo'lsa PDF hosil qilinadi"
     ) 
 
-
 class IjaragaJoySerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     photo = serializers.ImageField(use_url=True, required=False, allow_null=True)
@@ -930,12 +935,14 @@ class IjaragaJoySerializer(serializers.ModelSerializer):
     maydoni_birligi_bilan = serializers.SerializerMethodField()
     joylashuvi = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
+    turi_name = serializers.CharField(source='turi.qurilmaturi', read_only=True, allow_null=True)
 
     class Meta:
         model = Position
         fields = [
-            'id', 'joylashuvi', 'maydoni', 'o_lchov_birligi', 
-            'maydoni_birligi_bilan', 'photo', 'status', 
+            'id', 'joylashuvi', 'turi', 'turi_name',
+            'maydoni', 'o_lchov_birligi',
+            'maydoni_birligi_bilan', 'photo', 'status',
             'created_at', 'created_by', 'created_by_username'
         ]
         read_only_fields = ['created_by']
@@ -951,7 +958,3 @@ class IjaragaJoySerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         return "bo'sh"
-
-
-        
-

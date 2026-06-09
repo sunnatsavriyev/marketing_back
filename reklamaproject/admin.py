@@ -25,13 +25,12 @@ class StationAdmin(admin.ModelAdmin):
 
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'station', 'number', 'maydoni', 'o_lchov_birligi', 'created_at', 'created_by']
-    list_filter = ['station','created_by']
+    list_display = ['id', 'station', 'number', 'turi', 'maydoni', 'o_lchov_birligi', 'created_at', 'created_by']
+    list_filter = ['station', 'turi', 'created_by']
     search_fields = ['station__name', 'number']
     verbose_name = _("Joylashuv")
     verbose_name_plural = _("Joylashuvlar")
-    
-    
+
     
 @admin.register(Ijarachi)
 class IjarachiAdmin(admin.ModelAdmin):
