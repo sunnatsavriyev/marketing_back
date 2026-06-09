@@ -3350,10 +3350,14 @@ class OmmaviyTolovViewSet(viewsets.ModelViewSet):
 class IjaragaJoyViewSet(viewsets.ModelViewSet):
     queryset = IjaragaJoy.objects.all()
     serializer_class = IjaragaJoySerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['joylashuvi']
     filterset_fields = ['status']
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
