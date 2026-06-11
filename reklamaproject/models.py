@@ -109,6 +109,8 @@ class Ijarachi(models.Model):
     name = models.CharField(max_length=255, unique=True)
     contact_number = models.CharField(max_length=20)
     logo = models.ImageField(upload_to='ijarachi_logos/', null=True, blank=True)
+    Shartnoma_muddati_boshlanishi = models.DateField(null=True, blank=True, help_text="Shartnoma boshlanish sanasi")
+    Shartnoma_tugashi = models.DateField(null=True, blank=True, help_text="Shartnoma tugash sanasi")
     
     def __str__(self):
         return self.name

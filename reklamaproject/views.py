@@ -236,6 +236,17 @@ class IjarachiViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save()
 
+    @action(detail=True, methods=['get'], url_path='shartnoma-dates')
+    def shartnoma_dates(self, request, pk=None):
+        """Ijarachini tanlaganda shartnoma sanalarini avtomatik olish uchun endpoint"""
+        ijarachi = self.get_object()
+        return Response({
+            'id': ijarachi.id,
+            'name': ijarachi.name,
+            'Shartnoma_muddati_boshlanishi': ijarachi.Shartnoma_muddati_boshlanishi.strftime("%d-%m-%Y") if ijarachi.Shartnoma_muddati_boshlanishi else None,
+            'Shartnoma_tugashi': ijarachi.Shartnoma_tugashi.strftime("%d-%m-%Y") if ijarachi.Shartnoma_tugashi else None,
+        })
+
     # ======================
     # Excel eksport
     # ======================

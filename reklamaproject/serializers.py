@@ -54,12 +54,12 @@ class AdvertisementNestedSerializer(serializers.ModelSerializer):
 
 class IjarachiSerializers(serializers.ModelSerializer):
     reklamalari = AdvertisementNestedSerializer(source="advertisement_set", many=True, read_only=True)
-    
-    
+    Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True, input_formats=["%Y-%m-%d", "%d-%m-%Y"])
+    Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True, input_formats=["%Y-%m-%d", "%d-%m-%Y"])
     
     class Meta:
         model = Ijarachi
-        fields = ['id', 'name',"logo", "contact_number", "reklamalari"]
+        fields = ['id', 'name', "logo", "contact_number", "Shartnoma_muddati_boshlanishi", "Shartnoma_tugashi", "reklamalari"]
 
 
 
@@ -95,8 +95,8 @@ class AdvertisementSerializer(serializers.ModelSerializer):
     tolovlar = ShartnomaSummasiSerializer(many=True, read_only=True)
     jami_tolov = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     
-    Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y")
-    Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y")
+    Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
+    Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
     # READ uchun nested obyekt
     ijarachi = IjarachiSerializers(source="Ijarachi", read_only=True)
@@ -125,7 +125,28 @@ class AdvertisementSerializer(serializers.ModelSerializer):
             'jami_tolov',
         ]
         read_only_fields = ['user']
+
+    def validate(self, attrs):
+        ijarachi = attrs.get('Ijarachi')
         
+        # Boshlanish sanasini tekshirish/to'ldirish
+        if not attrs.get('Shartnoma_muddati_boshlanishi'):
+            if ijarachi and ijarachi.Shartnoma_muddati_boshlanishi:
+                attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_muddati_boshlanishi': "Shartnoma boshlanish sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        
+        # Tugash sanasini tekshirish/to'ldirish
+        if not attrs.get('Shartnoma_tugashi'):
+            if ijarachi and ijarachi.Shartnoma_tugashi:
+                attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_tugashi': "Shartnoma tugash sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        return attrs
         
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -189,6 +210,7 @@ class CreateAdvertisementSerializer(AdvertisementSerializer):
             self.fields['position'].queryset = Position.objects.filter(advertisement__isnull=True)
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         if 'position' not in attrs or attrs['position'] is None:
             raise serializers.ValidationError({
                 'position': "Joy tanlanishi shart."
@@ -277,14 +299,34 @@ class BulkAdvertisementItemSerializer(serializers.Serializer):
     Qurilma_turi_id = serializers.PrimaryKeyRelatedField(queryset=Turi.objects.all(), required=False, allow_null=True)
     Ijarachi_id = serializers.PrimaryKeyRelatedField(queryset=Ijarachi.objects.all(), required=False, allow_null=True)
     Shartnoma_raqami = serializers.CharField(max_length=100, required=False, allow_null=True)
-    Shartnoma_muddati_boshlanishi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"])
-    Shartnoma_tugashi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"])
+    Shartnoma_muddati_boshlanishi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"], required=False, allow_null=True)
+    Shartnoma_tugashi = serializers.DateField(input_formats=["%Y-%m-%d", "%d-%m-%Y"], required=False, allow_null=True)
     O_lchov_birligi = serializers.ChoiceField(choices=[('dona', 'Dona'), ('kv_metr', 'Kv metr'), ('komplekt', 'Komplekt')], default='dona')
     Qurilma_narxi = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     Egallagan_maydon = serializers.DecimalField(max_digits=10, decimal_places=2, default=1)
     Shartnoma_summasi = serializers.DecimalField(max_digits=20, decimal_places=2, default=0)
     photo = Base64ImageField(required=False, allow_null=True)
     Shartnoma_fayl = Base64FileField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        ijarachi = attrs.get('Ijarachi_id')
+        
+        if not attrs.get('Shartnoma_muddati_boshlanishi'):
+            if ijarachi and ijarachi.Shartnoma_muddati_boshlanishi:
+                attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_muddati_boshlanishi': "Shartnoma boshlanish sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        
+        if not attrs.get('Shartnoma_tugashi'):
+            if ijarachi and ijarachi.Shartnoma_tugashi:
+                attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_tugashi': "Shartnoma tugash sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        return attrs
 
 class BulkAdvertisementCreateSerializer(serializers.Serializer):
     items = BulkAdvertisementItemSerializer(many=True)
@@ -392,10 +434,10 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
 
     # Date fields
     Shartnoma_muddati_boshlanishi = serializers.DateField(
-        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
     Shartnoma_tugashi = serializers.DateField(
-        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
 
     # Multi-file qabul qilish uchun MUST USE ListField
@@ -420,7 +462,33 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        
+        ijarachi = attrs.get('Ijarachi')
+        if not ijarachi and self.instance:
+            ijarachi = self.instance.Ijarachi
+
+        if 'Shartnoma_muddati_boshlanishi' not in attrs or attrs['Shartnoma_muddati_boshlanishi'] is None:
+            if ijarachi and ijarachi.Shartnoma_muddati_boshlanishi:
+                if attrs.get('Shartnoma_muddati_boshlanishi') is None:
+                    attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+                elif self.instance and not self.instance.Shartnoma_muddati_boshlanishi:
+                    attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+            
+            if not attrs.get('Shartnoma_muddati_boshlanishi') and (not self.instance or not getattr(self.instance, 'Shartnoma_muddati_boshlanishi', None)):
+                raise serializers.ValidationError({
+                    'Shartnoma_muddati_boshlanishi': "Shartnoma boshlanish sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+
+        if 'Shartnoma_tugashi' not in attrs or attrs['Shartnoma_tugashi'] is None:
+            if ijarachi and ijarachi.Shartnoma_tugashi:
+                if attrs.get('Shartnoma_tugashi') is None:
+                    attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+                elif self.instance and not self.instance.Shartnoma_tugashi:
+                    attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+            
+            if not attrs.get('Shartnoma_tugashi') and (not self.instance or not getattr(self.instance, 'Shartnoma_tugashi', None)):
+                raise serializers.ValidationError({
+                    'Shartnoma_tugashi': "Shartnoma tugash sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
 
         return attrs
 
@@ -654,8 +722,8 @@ class TarkibAdvertisementSerializer(serializers.ModelSerializer):
     tolovlar = TarkibShartnomaSummasiSerializer(source='tarkibtolovlar', many=True, read_only=True)
     jami_tolov = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     
-    Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y")
-    Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y")
+    Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
+    Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
 
     ijarachi = IjarachiSerializers(source="Ijarachi", read_only=True)
@@ -677,6 +745,28 @@ class TarkibAdvertisementSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['user']
 
+    def validate(self, attrs):
+        ijarachi = attrs.get('Ijarachi')
+        
+        # Boshlanish sanasini tekshirish/to'ldirish
+        if not attrs.get('Shartnoma_muddati_boshlanishi'):
+            if ijarachi and ijarachi.Shartnoma_muddati_boshlanishi:
+                attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_muddati_boshlanishi': "Shartnoma boshlanish sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        
+        # Tugash sanasini tekshirish/to'ldirish
+        if not attrs.get('Shartnoma_tugashi'):
+            if ijarachi and ijarachi.Shartnoma_tugashi:
+                attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+            else:
+                raise serializers.ValidationError({
+                    'Shartnoma_tugashi': "Shartnoma tugash sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+        return attrs
+        
     def to_representation(self, instance):
         data = super().to_representation(instance)
         total = sum(t.Shartnomasummasi for t in instance.tarkibtolovlar.all())
@@ -733,6 +823,7 @@ class CreateTarkibAdvertisementSerializer(TarkibAdvertisementSerializer):
             self.fields['position'].queryset = TarkibPosition.objects.filter(tarkib_advertisement__isnull=True)
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         if 'position' not in attrs or attrs['position'] is None:
             raise serializers.ValidationError({'position': "Joy tanlanishi shart."})
         return attrs
@@ -746,10 +837,10 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
     Ijarachi = serializers.IntegerField(write_only=True, required=False)
     ijarachi = IjarachiSerializers(read_only=True)
     Shartnoma_muddati_boshlanishi = serializers.DateField(
-        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
     Shartnoma_tugashi = serializers.DateField(
-        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
     photo = serializers.ListField(child=serializers.FileField(), required=False)
     Shartnoma_fayl = serializers.ListField(child=serializers.FileField(), required=False)
@@ -763,6 +854,44 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
             'O_lchov_birligi', 'Qurilma_narxi', 'Egallagan_maydon', 'Shartnoma_summasi',
             'Shartnoma_fayl', 'photo'
         ]
+
+    def validate(self, attrs):
+        # We need to find Ijarachi
+        ijarachi = None
+        ijarachi_id = attrs.get('Ijarachi')
+        if ijarachi_id:
+            try:
+                ijarachi = Ijarachi.objects.get(id=ijarachi_id)
+            except Ijarachi.DoesNotExist:
+                raise serializers.ValidationError({"Ijarachi": "Ijarachi topilmadi."})
+        elif self.instance:
+            ijarachi = self.instance.Ijarachi
+
+        if 'Shartnoma_muddati_boshlanishi' not in attrs or attrs['Shartnoma_muddati_boshlanishi'] is None:
+            if ijarachi and ijarachi.Shartnoma_muddati_boshlanishi:
+                if attrs.get('Shartnoma_muddati_boshlanishi') is None:
+                    attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+                elif self.instance and not self.instance.Shartnoma_muddati_boshlanishi:
+                    attrs['Shartnoma_muddati_boshlanishi'] = ijarachi.Shartnoma_muddati_boshlanishi
+            
+            if not attrs.get('Shartnoma_muddati_boshlanishi') and (not self.instance or not getattr(self.instance, 'Shartnoma_muddati_boshlanishi', None)):
+                raise serializers.ValidationError({
+                    'Shartnoma_muddati_boshlanishi': "Shartnoma boshlanish sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+
+        if 'Shartnoma_tugashi' not in attrs or attrs['Shartnoma_tugashi'] is None:
+            if ijarachi and ijarachi.Shartnoma_tugashi:
+                if attrs.get('Shartnoma_tugashi') is None:
+                    attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+                elif self.instance and not self.instance.Shartnoma_tugashi:
+                    attrs['Shartnoma_tugashi'] = ijarachi.Shartnoma_tugashi
+            
+            if not attrs.get('Shartnoma_tugashi') and (not self.instance or not getattr(self.instance, 'Shartnoma_tugashi', None)):
+                raise serializers.ValidationError({
+                    'Shartnoma_tugashi': "Shartnoma tugash sanasi kiritilishi shart yoki tanlangan ijarachida shartnoma sanasi kiritilgan bo'lishi lozim."
+                })
+
+        return attrs
 
     def update(self, instance, validated_data):
         ijarachi_id = validated_data.pop("Ijarachi", None)

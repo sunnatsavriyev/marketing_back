@@ -34,7 +34,7 @@ class PositionAdmin(admin.ModelAdmin):
     
 @admin.register(Ijarachi)
 class IjarachiAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'contact_number', 'logo_display']
+    list_display = ['id', 'name', 'contact_number', 'Shartnoma_muddati_boshlanishi', 'Shartnoma_tugashi', 'logo_display']
     search_fields = ['name', 'contact_number']
     verbose_name = _("Ijarachi")
     verbose_name_plural = _("Ijarachilar")
