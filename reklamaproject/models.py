@@ -33,21 +33,6 @@ class Station(models.Model):
 class Position(models.Model):
     station = models.ForeignKey(Station, on_delete=models.SET_NULL,null=True, related_name='positions')
     number = models.PositiveIntegerField(help_text="Joy raqami, masalan: 1, 2, 3")
-    turi = models.ForeignKey('Turi', on_delete=models.SET_NULL, null=True, blank=True, related_name='positions', help_text="Reklama qurilma turi")
-    maydoni = models.DecimalField(max_digits=10, decimal_places=2, help_text="Joy maydoni yoki miqdori", null=True, blank=True)
-    o_lchov_birligi = models.CharField(
-        max_length=50, 
-        choices=[
-            ('dona', 'Dona'),
-            ('kv_metr', 'Kv metr'),
-            ('komplekt', 'Komplekt'),
-        ], 
-        default='kv_metr', 
-        null=True, 
-        blank=True,
-        help_text="O'lchov birligi"
-    )
-    photo = models.ImageField(upload_to='position_photos/', null=True, blank=True, help_text="Joy rasmi")
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     def __str__(self):

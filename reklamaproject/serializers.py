@@ -568,25 +568,15 @@ class PositionSerializer(serializers.ModelSerializer):
         source="station",
         write_only=True
     )
-    turi = serializers.PrimaryKeyRelatedField(
-        queryset=Turi.objects.all(),
-        required=False,
-        allow_null=True
-    )
-    turi_name = serializers.CharField(source="turi.qurilmaturi", read_only=True, allow_null=True)
     advertisement = AdvertisementSerializer(read_only=True)
     status = serializers.SerializerMethodField()
     created_by = serializers.CharField(source="created_by.username", read_only=True)
     created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
-    photo = Base64ImageField(required=False, allow_null=True)
-    maydoni_birligi_bilan = serializers.SerializerMethodField()
 
     class Meta:
         model = Position
         fields = [
             'id', 'station', 'station_id', 'number',
-            'turi', 'turi_name',
-            'maydoni', 'o_lchov_birligi', 'maydoni_birligi_bilan', 'photo',
             'advertisement', 'status',
             'created_at', 'created_by'
         ]
@@ -594,14 +584,7 @@ class PositionSerializer(serializers.ModelSerializer):
     def get_status(self, obj):
         return getattr(obj, "advertisement", None) is not None
 
-    def get_maydoni_birligi_bilan(self, obj):
-        if not obj.maydoni:
-            return ""
-        birlik = obj.get_o_lchov_birligi_display() if obj.o_lchov_birligi else ""
-        return f"{obj.maydoni} {birlik}".strip()
-
     def update(self, instance, validated_data):
-        # update paytida station o'zgarmasligi kerak
         validated_data.pop("station", None)
         return super().update(instance, validated_data)
 

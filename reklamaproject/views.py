@@ -169,11 +169,11 @@ class Stationimage(APIView):
 
 
 class PositionViewSet(viewsets.ModelViewSet):
-    queryset = Position.objects.select_related('station', 'turi').prefetch_related('advertisement').all().order_by('-created_at')
+    queryset = Position.objects.select_related('station').prefetch_related('advertisement').all().order_by('-created_at')
     serializer_class = PositionSerializer
     permission_classes = [AuthenticatedCRUDPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
-    filterset_fields = ['station', 'turi']
+    filterset_fields = ['station']
     search_fields = ['number']
     pagination_class = CustomPagination
 
