@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from .validators import validate_file_extension
+from .validators import validate_file_extension, validate_video_extension
 import logging
 from django.core.validators import FileExtensionValidator
 logger = logging.getLogger(__name__)
@@ -224,6 +224,7 @@ class TarkibAdvertisement(models.Model):
     Shartnoma_summasi = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     Shartnoma_fayl = models.FileField(upload_to='contracts/', default=None, validators=[validate_file_extension], null=True, blank=True)
     photo = models.ImageField(upload_to='ad_photos/', null=True, blank=True)
+    video = models.FileField(upload_to='ad_videos/', null=True, blank=True, validators=[validate_video_extension])
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -252,12 +253,13 @@ class TarkibAdvertisementArchive(models.Model):
     Shartnoma_summasi = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     Shartnoma_fayl = models.FileField(upload_to='contracts_archive/', null=True, blank=True)
     photo = models.ImageField(upload_to='ad_photos_archive/', null=True, blank=True)
+    video = models.FileField(upload_to='ad_videos_archive/', null=True, blank=True, validators=[validate_video_extension])
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"{self.Reklama_nomi} ({self.position})"
     
-
+    
 
   
 class Advertisement(models.Model):
@@ -282,6 +284,7 @@ class Advertisement(models.Model):
     Shartnoma_summasi = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     Shartnoma_fayl = models.FileField(upload_to='contracts/', default=None, validators=[validate_file_extension], null=True, blank=True)
     photo = models.ImageField(upload_to='ad_photos/', null=True, blank=True)
+    video = models.FileField(upload_to='ad_videos/', null=True, blank=True, validators=[validate_video_extension])
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -308,6 +311,7 @@ class AdvertisementArchive(models.Model):
     Shartnoma_summasi = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     Shartnoma_fayl = models.FileField(upload_to='contracts_archive/', null=True, blank=True)
     photo = models.ImageField(upload_to='ad_photos_archive/', null=True, blank=True)
+    video = models.FileField(upload_to='ad_videos_archive/', null=True, blank=True, validators=[validate_video_extension])
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):

@@ -211,6 +211,7 @@ class PositionViewSet(viewsets.ModelViewSet):
                 Shartnoma_summasi=ad.Shartnoma_summasi,
                 Shartnoma_fayl=ad.Shartnoma_fayl,
                 photo=ad.photo,
+                video=ad.video,
                 contact_number=ad.contact_number,
             )
             ad.delete()
@@ -468,6 +469,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
             Shartnoma_summasi=old_instance.Shartnoma_summasi,
             Shartnoma_fayl=old_instance.Shartnoma_fayl,
             photo=old_instance.photo,
+            video=old_instance.video,
         )
 
         # Tolovlarni arxivga
@@ -538,6 +540,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
             Shartnoma_summasi=instance.Shartnoma_summasi,
             Shartnoma_fayl=instance.Shartnoma_fayl,
             photo=instance.photo,
+            video=instance.video,
 
         )
         for tolov in old_instance.tolovlar.all():
@@ -585,6 +588,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
                     Shartnoma_summasi=target_ad.Shartnoma_summasi,
                     Shartnoma_fayl=target_ad.Shartnoma_fayl,
                     photo=target_ad.photo,
+                    video=target_ad.video,
                     contact_number=source_ad.Ijarachi.contact_number if source_ad.Ijarachi else None
 
                 )
@@ -607,6 +611,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
                 Shartnoma_summasi=source_ad.Shartnoma_summasi,
                 Shartnoma_fayl=source_ad.Shartnoma_fayl,
                 photo=source_ad.photo,
+                video=source_ad.video,
                 contact_number=source_ad.Ijarachi.contact_number if source_ad.Ijarachi else None
 
             )
@@ -632,6 +637,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
                 Shartnoma_summasi=source_ad.Shartnoma_summasi,
                 Shartnoma_fayl=source_ad.Shartnoma_fayl,
                 photo=source_ad.photo,
+                video=source_ad.video,
                 contact_number=source_ad.Ijarachi.contact_number if source_ad.Ijarachi else None
 
             )
@@ -1736,7 +1742,8 @@ class Last10AdvertisementImagesView(APIView):
             {
                 "id": ad.id,
                 "name": ad.Reklama_nomi,
-                "photo": request.build_absolute_uri(ad.photo.url) if ad.photo else None
+                "photo": request.build_absolute_uri(ad.photo.url) if ad.photo else None,
+                "video": request.build_absolute_uri(ad.video.url) if ad.video else None,
             }
             for ad in ads
         ]
@@ -1847,6 +1854,7 @@ class TarkibPositionViewSet(viewsets.ModelViewSet):
                     Shartnoma_summasi=ad.Shartnoma_summasi,
                     Shartnoma_fayl=ad.Shartnoma_fayl,
                     photo=ad.photo,
+                video=ad.video,
                     contact_number=ad.contact_number,
                 )
 
@@ -1921,6 +1929,7 @@ class TarkibAdvertisementViewSet(viewsets.ModelViewSet):
             Shartnoma_summasi=old_ad.Shartnoma_summasi,
             Shartnoma_fayl=old_ad.Shartnoma_fayl,
             photo=old_ad.photo,
+            video=old_ad.video,
         )
 
         # ---- To‘lovlarni arxivga o‘tkazish ----
@@ -1965,6 +1974,7 @@ class TarkibAdvertisementViewSet(viewsets.ModelViewSet):
             Shartnoma_summasi=instance.Shartnoma_summasi,
             Shartnoma_fayl=instance.Shartnoma_fayl,
             photo=instance.photo,
+            video=instance.video,
         )
 
         for t in instance.tarkibtolovlar.all():
@@ -3161,6 +3171,14 @@ class BulkAdvertisementViewSet(viewsets.ModelViewSet):
                             fayl_key_dot = f"items[{i}].Shartnoma_fayl"
                             if fayl_key_dot in request.FILES:
                                 item['Shartnoma_fayl'] = request.FILES[fayl_key_dot]
+
+                        video_key = f"items[{i}][video]"
+                        if video_key in request.FILES:
+                            item['video'] = request.FILES[video_key]
+                        else:
+                            video_key_dot = f"items[{i}].video"
+                            if video_key_dot in request.FILES:
+                                item['video'] = request.FILES[video_key_dot]
                     
                     parsed_data = {'items': parsed_items}
             except Exception as e:
@@ -3224,6 +3242,8 @@ class BulkAdvertisementViewSet(viewsets.ModelViewSet):
                             )
                             if 'photo' in item and item['photo']:
                                 ad.photo = item['photo']
+                            if 'video' in item and item['video']:
+                                ad.video = item['video']
                             if 'Shartnoma_fayl' in item and item['Shartnoma_fayl']:
                                 ad.Shartnoma_fayl = item['Shartnoma_fayl']
                                 

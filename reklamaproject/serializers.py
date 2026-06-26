@@ -85,6 +85,7 @@ class AdvertisementSerializer(serializers.ModelSerializer):
     position_number = serializers.IntegerField(source='position.number', read_only=True)
     created_by = serializers.CharField(source="user.username", read_only=True) 
     photo = serializers.ImageField(use_url=True)
+    video = serializers.FileField(use_url=True, required=False, allow_null=True)
     # Reklama ko'rishda barcha pozitsiyalar bo'lishi mumkin
     position = serializers.PrimaryKeyRelatedField(queryset=Position.objects.all())
     Ijarachi = serializers.PrimaryKeyRelatedField(
@@ -119,7 +120,7 @@ class AdvertisementSerializer(serializers.ModelSerializer):
             'Shartnoma_muddati_boshlanishi', 'Shartnoma_tugashi',
             'O_lchov_birligi', 
             'Qurilma_narxi', 'Egallagan_maydon', 'Shartnoma_summasi',
-            'Shartnoma_fayl', 'photo', 'created_at',
+            'Shartnoma_fayl', 'photo', 'video', 'created_at',
             'created_by',
             'tolovlar',
             'jami_tolov',
@@ -293,6 +294,28 @@ class Base64FileField(serializers.FileField):
                     pass
         return super().to_internal_value(data)
 
+class Base64VideoField(serializers.FileField):
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            if ';base64,' in data:
+                try:
+                    format, filestr = data.split(';base64,')
+                    ext = 'mp4'
+                    if 'video/' in format:
+                        ext = format.split('/')[-1].split(';')[0]
+                    id = uuid.uuid4()
+                    data = ContentFile(base64.b64decode(filestr), name=f"{id}.{ext}")
+                except Exception as e:
+                    raise serializers.ValidationError(f"Video base64 decodingda xato: {str(e)}")
+            else:
+                try:
+                    decoded = base64.b64decode(data)
+                    id = uuid.uuid4()
+                    data = ContentFile(decoded, name=f"{id}.mp4")
+                except Exception:
+                    pass
+        return super().to_internal_value(data)
+
 class BulkAdvertisementItemSerializer(serializers.Serializer):
     bekatlar = StationPositionBulkSerializer(many=True, help_text="Qaysi bekatlar va ulardagi qaysi joylarga qo'shilishi")
     Reklama_nomi = serializers.CharField(max_length=255, default='Reklama nomi')
@@ -306,6 +329,7 @@ class BulkAdvertisementItemSerializer(serializers.Serializer):
     Egallagan_maydon = serializers.DecimalField(max_digits=10, decimal_places=2, default=1)
     Shartnoma_summasi = serializers.DecimalField(max_digits=20, decimal_places=2, default=0)
     photo = Base64ImageField(required=False, allow_null=True)
+    video = Base64VideoField(required=False, allow_null=True)
     Shartnoma_fayl = Base64FileField(required=False, allow_null=True)
 
     def validate(self, attrs):
@@ -445,6 +469,10 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
         child=serializers.FileField(),
         required=False
     )
+    video = serializers.ListField(
+        child=serializers.FileField(),
+        required=False
+    )
     Shartnoma_fayl = serializers.ListField(
         child=serializers.FileField(),
         required=False
@@ -458,7 +486,7 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
             'Shartnoma_raqami', 'Shartnoma_muddati_boshlanishi',
             'Shartnoma_tugashi', 'O_lchov_birligi', 'Qurilma_narxi',
             'Egallagan_maydon', 'Shartnoma_summasi',
-            'Shartnoma_fayl', 'photo'
+            'Shartnoma_fayl', 'photo', 'video'
         ]
 
     def validate(self, attrs):
@@ -518,6 +546,11 @@ class UpdateAdvertisementSerializer(serializers.ModelSerializer):
             photos = self.initial_data.getlist("photo")
             if photos:
                 instance.photo = photos[0]  # bitta rasm emas, yangi birinchi rasmni qo'yamiz
+
+        if "video" in self.initial_data:
+            videos = self.initial_data.getlist("video")
+            if videos:
+                instance.video = videos[0]
 
         if "Shartnoma_fayl" in self.initial_data:
             files = self.initial_data.getlist("Shartnoma_fayl")
@@ -705,6 +738,7 @@ class TarkibAdvertisementSerializer(serializers.ModelSerializer):
     position_number = serializers.IntegerField(source='position.number', read_only=True)
     created_by = serializers.CharField(source="user.username", read_only=True) 
     photo = serializers.ImageField(use_url=True)
+    video = serializers.FileField(use_url=True, required=False, allow_null=True)
     tarkib_nomi = serializers.CharField(
         source='position.harakat_tarkibi.tarkib',
         read_only=True
@@ -740,7 +774,7 @@ class TarkibAdvertisementSerializer(serializers.ModelSerializer):
             'Ijarachi', 'ijarachi', 'ijarachi_contact', 'ijarachi_name', 'ijarachi_logo',
             'Shartnoma_raqami', 'Shartnoma_muddati_boshlanishi', 'Shartnoma_tugashi',
             'O_lchov_birligi', 'Qurilma_narxi', 'Egallagan_maydon', 'Shartnoma_summasi',
-            'Shartnoma_fayl', 'photo', 'created_at', 'created_by',
+            'Shartnoma_fayl', 'photo', 'video', 'created_at', 'created_by',
             'tolovlar', 'jami_tolov',
         ]
         read_only_fields = ['user']
@@ -843,6 +877,7 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
         required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
     photo = serializers.ListField(child=serializers.FileField(), required=False)
+    video = serializers.ListField(child=serializers.FileField(), required=False)
     Shartnoma_fayl = serializers.ListField(child=serializers.FileField(), required=False)
 
     class Meta:
@@ -852,7 +887,7 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
             'Ijarachi', 'ijarachi',
             'Shartnoma_raqami', 'Shartnoma_muddati_boshlanishi', 'Shartnoma_tugashi',
             'O_lchov_birligi', 'Qurilma_narxi', 'Egallagan_maydon', 'Shartnoma_summasi',
-            'Shartnoma_fayl', 'photo'
+            'Shartnoma_fayl', 'photo', 'video'
         ]
 
     def validate(self, attrs):
@@ -911,6 +946,11 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
             photos = self.initial_data.getlist("photo")
             if photos:
                 instance.photo = photos[0]
+
+        if "video" in self.initial_data:
+            videos = self.initial_data.getlist("video")
+            if videos:
+                instance.video = videos[0]
 
         if "Shartnoma_fayl" in self.initial_data:
             files = self.initial_data.getlist("Shartnoma_fayl")
