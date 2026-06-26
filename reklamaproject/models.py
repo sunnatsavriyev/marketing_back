@@ -312,5 +312,69 @@ class AdvertisementArchive(models.Model):
 
     def __str__(self):
         return f"{self.Reklama_nomi} ({self.position})"
-    
+
+
+class IjaragaJoy(models.Model):
+    station = models.ForeignKey(
+        Station,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ijaraga_joylar',
+        help_text="Bekat"
+    )
+    joylashuvi = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Qo'shimcha joy tavsifi (masalan: 1-qavat, kirish oldi)"
+    )
+    turi = models.ForeignKey(
+        Turi,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ijaraga_joylar',
+        help_text="Joy turi"
+    )
+    maydoni = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Joy maydoni yoki miqdori"
+    )
+    o_lchov_birligi = models.CharField(
+        max_length=50,
+        choices=[
+            ('dona', 'Dona'),
+            ('kv_metr', 'Kv metr'),
+            ('komplekt', 'Komplekt'),
+        ],
+        default='kv_metr',
+        help_text="O'lchov birligi"
+    )
+    photo = models.ImageField(
+        upload_to='ijaraga_joylar/',
+        null=True,
+        blank=True,
+        help_text='Joy rasmi'
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=[("bo'sh", "Bo'sh"), ('band', 'Band')],
+        default="bo'sh",
+        help_text="Statusi (bo'sh yoki band)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Ijaraga beriladigan joy'
+        verbose_name_plural = 'Ijaraga beriladigan joylar'
+
+    def __str__(self):
+        if self.station:
+            return f"{self.station.name} - {self.joylashuvi}" if self.joylashuvi else self.station.name
+        return self.joylashuvi
 

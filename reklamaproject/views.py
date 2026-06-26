@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 import json
 import logging
 logger = logging.getLogger(__name__)
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi, Turi,TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi, ShartnomaSummasi, ShartnomaSummasiArchive, Depo, HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy
 from .serializers import (
     MetroLineSerializer, StationSerializer,
     PositionSerializer, AdvertisementSerializer, AdvertisementArchiveSerializer, 
@@ -3358,13 +3358,20 @@ class OmmaviyTolovViewSet(viewsets.ModelViewSet):
         return Response(OmmaviyTolovSerializer(instance).data)
 
 
-class IjaragaJoyViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Position.objects.filter(advertisement__isnull=True).select_related('station', 'turi').order_by('-id')
+class IjaragaJoyViewSet(viewsets.ModelViewSet):
+    queryset = IjaragaJoy.objects.select_related('station', 'station__line', 'turi', 'created_by').order_by('-created_at')
     serializer_class = IjaragaJoySerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['station__name', 'number']
-    filterset_fields = ['turi']
+    search_fields = ['joylashuvi', 'station__name']
+    filterset_fields = ['turi', 'status', 'station']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -3372,11 +3379,11 @@ class IjaragaJoyViewSet(viewsets.ReadOnlyModelViewSet):
 
         if group_by == 'turi':
             grouped = {}
-            for pos in queryset:
-                key = pos.turi.qurilmaturi if pos.turi else "Noma'lum tur"
+            for joy in queryset:
+                key = joy.turi.qurilmaturi if joy.turi else "Noma'lum tur"
                 if key not in grouped:
                     grouped[key] = []
-                grouped[key].append(IjaragaJoySerializer(pos, context={'request': request}).data)
+                grouped[key].append(IjaragaJoySerializer(joy, context={'request': request}).data)
             return Response(grouped)
 
         serializer = self.get_serializer(queryset, many=True)

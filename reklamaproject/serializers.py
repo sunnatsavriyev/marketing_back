@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (Advertisement, Station, MetroLine, Position, AdvertisementArchive, 
                      Ijarachi, Turi, ShartnomaSummasi, ShartnomaSummasiArchive,Depo, HarakatTarkibi, TarkibPosition, TarkibShartnomaSummasi,TarkibAdvertisementArchiveShartnomaSummasi,
-                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov)
+                     TarkibAdvertisement, TarkibAdvertisementArchive, OmmaviyTolov, IjaragaJoy)
 from rest_framework.fields import CurrentUserDefault
 from datetime import date, timedelta,datetime
 from rest_framework import status
@@ -1059,31 +1059,36 @@ class IjarachiUnifiedStatisticsQuerySerializer(serializers.Serializer):
 
 class IjaragaJoySerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
-    photo = serializers.ImageField(use_url=True, required=False, allow_null=True)
+    photo = Base64ImageField(required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     maydoni_birligi_bilan = serializers.SerializerMethodField()
-    joylashuvi = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
     turi_name = serializers.CharField(source='turi.qurilmaturi', read_only=True, allow_null=True)
+    station_name = serializers.CharField(source='station.name', read_only=True, allow_null=True)
+    line_name = serializers.CharField(source='station.line.name', read_only=True, allow_null=True)
+    turi = serializers.PrimaryKeyRelatedField(
+        queryset=Turi.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    station_id = serializers.PrimaryKeyRelatedField(
+        queryset=Station.objects.all(),
+        source='station',
+    )
+    joylashuvi = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = Position
+        model = IjaragaJoy
         fields = [
-            'id', 'joylashuvi', 'turi', 'turi_name',
+            'id', 'station_id', 'station_name', 'line_name', 'joylashuvi',
+            'turi', 'turi_name',
             'maydoni', 'o_lchov_birligi',
             'maydoni_birligi_bilan', 'photo', 'status',
             'created_at', 'created_by', 'created_by_username'
         ]
-        read_only_fields = ['created_by']
+        read_only_fields = ['created_by', 'status']
 
     def get_maydoni_birligi_bilan(self, obj):
         if not obj.maydoni:
             return ""
         birlik = obj.get_o_lchov_birligi_display() if obj.o_lchov_birligi else ""
         return f"{obj.maydoni} {birlik}".strip()
-
-    def get_joylashuvi(self, obj):
-        return f"{obj.station.name} - {obj.number}-joy" if obj.station else f"{obj.number}-joy"
-
-    def get_status(self, obj):
-        return "bo'sh"

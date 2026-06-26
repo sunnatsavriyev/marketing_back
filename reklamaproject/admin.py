@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
-from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi,TarkibShartnomaSummasi, Turi, ShartnomaSummasi,HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive,Depo
+from .models import MetroLine, Station, Position, Advertisement, AdvertisementArchive, Ijarachi,TarkibShartnomaSummasi, Turi, ShartnomaSummasi,HarakatTarkibi, TarkibPosition, TarkibAdvertisement, TarkibAdvertisementArchive,Depo, IjaragaJoy
 
 @admin.register(MetroLine)
 class MetroLineAdmin(admin.ModelAdmin):
@@ -30,6 +30,15 @@ class PositionAdmin(admin.ModelAdmin):
     search_fields = ['station__name', 'number']
     verbose_name = _("Joylashuv")
     verbose_name_plural = _("Joylashuvlar")
+
+
+@admin.register(IjaragaJoy)
+class IjaragaJoyAdmin(admin.ModelAdmin):
+    list_display = ['id', 'station', 'joylashuvi', 'turi', 'maydoni', 'o_lchov_birligi', 'status', 'created_at', 'created_by']
+    list_filter = ['station', 'turi', 'status', 'created_by']
+    search_fields = ['joylashuvi', 'station__name']
+    verbose_name = _("Ijaraga beriladigan joy")
+    verbose_name_plural = _("Ijaraga beriladigan joylar")
 
     
 @admin.register(Ijarachi)
