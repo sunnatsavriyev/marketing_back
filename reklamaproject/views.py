@@ -9,6 +9,7 @@ from .serializers import (
     PositionSerializer, AdvertisementSerializer, AdvertisementArchiveSerializer, 
     CreateAdvertisementSerializer, ExportAdvertisementSerializer,AdvertisementStatisticsSerializer,
     IjarachiSerializers, TuriSerializer, ShartnomaSummasiSerializer, UpdateAdvertisementSerializer,TarkibShartnomaSummasiSerializer,IjarachiUnifiedStatisticsQuerySerializer,
+    AdvertisementNestedSerializer,
     TarkibAdvertisementSerializer, TarkibAdvertisementArchiveSerializer,CreateTarkibAdvertisementSerializer,UpdateTarkibAdvertisementSerializer,TarkibPositionSerializer, DepoSerializer, HarakatTarkibiSerializer,
     BulkAdvertisementCreateSerializer, OmmaviyTolovCreateSerializer, OmmaviyTolovSerializer, IjaragaJoySerializer
 )
@@ -57,6 +58,46 @@ from reportlab.lib.styles import ParagraphStyle
 from decimal import Decimal
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 
+
+def get_advertisement_queryset():
+    return Advertisement.objects.select_related(
+        "position__station__line",
+        "position__station",
+        "user",
+        "Qurilma_turi",
+        "Ijarachi",
+    ).prefetch_related("tolovlar")
+
+
+def get_advertisement_archive_queryset():
+    return AdvertisementArchive.objects.select_related(
+        "user",
+        "line",
+        "station",
+        "Ijarachi",
+        "position",
+        "position__station",
+        "position__station__line",
+        "Qurilma_turi",
+    ).prefetch_related("tolovlar").order_by("-created_at")
+
+
+def pdf_image_fields(file_field):
+    if not file_field:
+        return {"image": "", "image_path": ""}
+    image_path = ""
+    try:
+        image_path = file_field.path
+    except (ValueError, AttributeError):
+        pass
+    image_url = ""
+    try:
+        image_url = file_field.url
+    except (ValueError, AttributeError):
+        pass
+    return {"image": image_url, "image_path": image_path}
+
+
 class XLSXRenderer(BaseRenderer):
     media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     format = 'xlsx'
@@ -67,54 +108,59 @@ class XLSXRenderer(BaseRenderer):
 
 
 
+
+
 def generate_pdf_detail(filename, title, data_list):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        title=title
-    )
-
+    doc = SimpleDocTemplate(buffer, pagesize=A4, title=title)
     styles = getSampleStyleSheet()
     elements = []
 
-    # Title
     elements.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
     elements.append(Spacer(1, 12))
 
-    # Har bir reklama uchun alohida blok
     for idx, item in enumerate(data_list, start=1):
         elements.append(Paragraph(f"<b>Reklama #{idx}</b>", styles["Heading2"]))
         elements.append(Spacer(1, 6))
 
-        # Agar image bo‘lsa – tepada chiqaramiz
-        if "image" in item and item["image"]:
+        image_path = item.get("image_path") or ""
+        image_url = item.get("image") or ""
+        img_added = False
+
+        if image_path and os.path.exists(image_path):
             try:
-                img_resp = requests.get(item["image"], timeout=5)
+                elements.append(Image(image_path, width=150, height=100))
+                elements.append(Spacer(1, 6))
+                img_added = True
+            except Exception:
+                pass
+        elif image_url:
+            try:
+                img_resp = requests.get(image_url, timeout=5)
                 if img_resp.status_code == 200:
                     img_data = io.BytesIO(img_resp.content)
-                    img = Image(img_data, width=150, height=100)
-                    elements.append(img)
+                    elements.append(Image(img_data, width=150, height=100))
                     elements.append(Spacer(1, 6))
+                    img_added = True
             except Exception:
-                elements.append(Paragraph("<b>Rasm yuklanmadi</b>", styles["Normal"]))
-                elements.append(Spacer(1, 6))
+                pass
 
-        # Qolgan ma’lumotlar
+        if (image_path or image_url) and not img_added:
+            elements.append(Paragraph("<b>Rasm yuklanmadi</b>", styles["Normal"]))
+            elements.append(Spacer(1, 6))
+
         for key, value in item.items():
-            if key == "image":  
-                continue  # image allaqachon chiqarildi
+            if key in ("image", "image_path"):
+                continue
             text = f'<font color="blue"><b>{key}:</b></font> {value}'
             elements.append(Paragraph(text, styles["Normal"]))
             elements.append(Spacer(1, 3))
 
-        # Ajratish chizig‘i
         elements.append(Spacer(1, 6))
         elements.append(HRFlowable(width="100%", color=colors.grey, thickness=0.7, lineCap='round'))
         elements.append(Spacer(1, 12))
 
     doc.build(elements)
-
     buffer.seek(0)
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
@@ -222,7 +268,11 @@ class PositionViewSet(viewsets.ModelViewSet):
 
 
 class IjarachiViewSet(viewsets.ModelViewSet):
-    queryset = Ijarachi.objects.all().order_by("-id")
+    queryset = Ijarachi.objects.prefetch_related(
+        "advertisement_set__position__station",
+        "advertisement_set__user",
+        "advertisement_set__tolovlar",
+    ).order_by("-id")
     serializer_class = IjarachiSerializers
     permission_classes = [AuthenticatedCRUDPermission]  
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -247,6 +297,13 @@ class IjarachiViewSet(viewsets.ModelViewSet):
             'Shartnoma_muddati_boshlanishi': ijarachi.Shartnoma_muddati_boshlanishi.strftime("%d-%m-%Y") if ijarachi.Shartnoma_muddati_boshlanishi else None,
             'Shartnoma_tugashi': ijarachi.Shartnoma_tugashi.strftime("%d-%m-%Y") if ijarachi.Shartnoma_tugashi else None,
         })
+
+    @action(detail=True, methods=['get'], url_path='reklamalari')
+    def reklamalari(self, request, pk=None):
+        ijarachi = self.get_object()
+        ads = get_advertisement_queryset().filter(Ijarachi=ijarachi)
+        serializer = AdvertisementNestedSerializer(ads, many=True, context={'request': request})
+        return Response(serializer.data)
 
     # ======================
     # Excel eksport
@@ -355,61 +412,6 @@ class IjarachiViewSet(viewsets.ModelViewSet):
         return response
 
 
-
-
-def generate_pdf_detail(filename, title, data_list):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    elements = []
-    styles = getSampleStyleSheet()
-
-    # Report title
-    elements.append(Paragraph(title, styles['Title']))
-    elements.append(Spacer(1, 12))
-
-    for idx, item in enumerate(data_list, start=1):
-        elements.append(Paragraph(f"Reklama #{idx}", styles['Heading2']))
-        elements.append(Spacer(1, 6))
-
-        # Rasm
-        if item.get("image") and os.path.exists(item["image"].replace("/media/", "media/")):
-            try:
-                img_path = item["image"].replace("/media/", "media/")
-                elements.append(Image(img_path, width=3*inch, height=2*inch))
-                elements.append(Spacer(1, 12))
-            except Exception:
-                elements.append(Paragraph("Rasm yuklanmadi", styles['Normal']))
-        else:
-            elements.append(Paragraph("Rasm yuklanmadi", styles['Normal']))
-
-        # Table
-        table_data = []
-        for key, value in item.items():
-            if key == "image":
-                continue
-            table_data.append([key, str(value)])
-
-        table = Table(table_data, colWidths=[150, 300])
-        table.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ]))
-        elements.append(table)
-        elements.append(Spacer(1, 20))
-
-    doc.build(elements)
-    buffer.seek(0)
-
-    response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
-    return response
-
-
-
-
-
-
 class TuriViewSet(viewsets.ModelViewSet):
     queryset = Turi.objects.all().order_by("-id")
     serializer_class = TuriSerializer
@@ -422,14 +424,14 @@ class TuriViewSet(viewsets.ModelViewSet):
 
 
 class AdvertisementViewSet(viewsets.ModelViewSet):
-    queryset = Advertisement.objects.all()
+    queryset = get_advertisement_queryset()
     serializer_class = AdvertisementSerializer
     permission_classes = [AuthenticatedCRUDPermission]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['Reklama_nomi', 'Shartnoma_raqami']
     ordering_fields = ['created_at', 'Qurilma_narxi']
     filterset_fields = ['position__station', 'position__station__line']
-    # pagination_class = CustomPagination
+    pagination_class = CustomPagination
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -702,7 +704,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
         data_list = []
         for ad in queryset:
             data_list.append({
-                "image": ad.photo.url if ad.photo else "",
+                **pdf_image_fields(ad.photo),
                 "Reklama nomi": ad.Reklama_nomi,
                 "Qurilma turi": ad.Qurilma_turi,
                 "Ijarachi": str(ad.Ijarachi) if ad.Ijarachi else "",
@@ -726,7 +728,7 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
 
 
 class AdvertisementArchiveViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AdvertisementArchive.objects.all().order_by('-created_at')
+    queryset = get_advertisement_archive_queryset()
     serializer_class = AdvertisementArchiveSerializer
     permission_classes = [AuthenticatedCRUDPermission]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -793,7 +795,7 @@ class AdvertisementArchiveViewSet(viewsets.ReadOnlyModelViewSet):
         data_list = []
         for ad in queryset:
             data_list.append({
-                "image": ad.photo.url if ad.photo else "",
+                **pdf_image_fields(ad.photo),
                 "Reklama nomi": ad.Reklama_nomi,
                 "Qurilma turi": ad.Qurilma_turi,
                 "Ijarachi": str(ad.Ijarachi) if ad.Ijarachi else "",
@@ -816,7 +818,7 @@ class AdvertisementArchiveViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ExpiredAdvertisementViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Advertisement.objects.all()
+    queryset = get_advertisement_queryset()
     serializer_class = AdvertisementSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -940,7 +942,7 @@ class ExpiredAdvertisementViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AllAdvertisementsViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Advertisement.objects.select_related("position__station__line", "user").all()
+    queryset = get_advertisement_queryset()
     serializer_class = AdvertisementSerializer
     permission_classes = [permissions.IsAuthenticated]   
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
@@ -2066,7 +2068,7 @@ class TarkibAdvertisementArchiveViewSet(viewsets.ReadOnlyModelViewSet):
 
         for ad in queryset:
             data_list.append({
-                "image": ad.photo.url if ad.photo else "",
+                **pdf_image_fields(ad.photo),
                 "Reklama nomi": ad.Reklama_nomi,
                 "Qurilma turi": ad.Qurilma_turi,
                 "Ijarachi": ad.Ijarachi.name if ad.Ijarachi else "",

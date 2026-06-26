@@ -52,6 +52,24 @@ class AdvertisementNestedSerializer(serializers.ModelSerializer):
         ]
 
 
+class IjarachiLightSerializer(serializers.ModelSerializer):
+    Shartnoma_muddati_boshlanishi = serializers.DateField(
+        format="%d-%m-%Y", required=False, allow_null=True,
+        input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+    )
+    Shartnoma_tugashi = serializers.DateField(
+        format="%d-%m-%Y", required=False, allow_null=True,
+        input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+    )
+
+    class Meta:
+        model = Ijarachi
+        fields = [
+            'id', 'name', 'logo', 'contact_number',
+            'Shartnoma_muddati_boshlanishi', 'Shartnoma_tugashi',
+        ]
+
+
 class IjarachiSerializers(serializers.ModelSerializer):
     reklamalari = AdvertisementNestedSerializer(source="advertisement_set", many=True, read_only=True)
     Shartnoma_muddati_boshlanishi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True, input_formats=["%Y-%m-%d", "%d-%m-%Y"])
@@ -100,7 +118,7 @@ class AdvertisementSerializer(serializers.ModelSerializer):
     Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
     # READ uchun nested obyekt
-    ijarachi = IjarachiSerializers(source="Ijarachi", read_only=True)
+    ijarachi = IjarachiLightSerializer(source="Ijarachi", read_only=True)
     ijarachi_contact = serializers.CharField(source="Ijarachi.contact_number", read_only=True)
     ijarachi_logo = serializers.ImageField(source="Ijarachi.logo", read_only=True)
     ijarachi_name = serializers.CharField(source="Ijarachi.name", read_only=True)
@@ -454,7 +472,7 @@ class OmmaviyTolovSerializer(serializers.ModelSerializer):
 
 
 class UpdateAdvertisementSerializer(serializers.ModelSerializer):
-    ijarachi = IjarachiSerializers(read_only=True)
+    ijarachi = IjarachiLightSerializer(read_only=True)
 
     # Date fields
     Shartnoma_muddati_boshlanishi = serializers.DateField(
@@ -610,7 +628,7 @@ class AdvertisementArchiveSerializer(serializers.ModelSerializer):
     tolovlar = ShartnomaSummasiArchiveSerializer(many=True, read_only=True)
     jami_tolov = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     # GET javobida esa to‘liq Ijarachi obyektini qaytaradi
-    ijarachi = IjarachiSerializers(source='Ijarachi', read_only=True)
+    ijarachi = IjarachiLightSerializer(source='Ijarachi', read_only=True)
     ijarachi_contact = serializers.CharField(source='Ijarachi.contact_number', read_only=True)
     ijarachi_logo = serializers.ImageField(source='Ijarachi.logo', read_only=True)  
     ijarachi_name = serializers.CharField(source='Ijarachi.name', read_only=True)
@@ -743,7 +761,7 @@ class TarkibAdvertisementSerializer(serializers.ModelSerializer):
     Shartnoma_tugashi = serializers.DateField(format="%d-%m-%Y", required=False, allow_null=True)
     created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
 
-    ijarachi = IjarachiSerializers(source="Ijarachi", read_only=True)
+    ijarachi = IjarachiLightSerializer(source="Ijarachi", read_only=True)
     ijarachi_contact = serializers.CharField(source="Ijarachi.contact_number", read_only=True)
     ijarachi_logo = serializers.ImageField(source="Ijarachi.logo", read_only=True)
     ijarachi_name = serializers.CharField(source="Ijarachi.name", read_only=True)
@@ -852,7 +870,7 @@ class UpdateTarkibAdvertisementSerializer(serializers.ModelSerializer):
         required=False
     )
     Ijarachi = serializers.IntegerField(write_only=True, required=False)
-    ijarachi = IjarachiSerializers(read_only=True)
+    ijarachi = IjarachiLightSerializer(read_only=True)
     Shartnoma_muddati_boshlanishi = serializers.DateField(
         required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"], allow_null=True
     )
@@ -1045,7 +1063,7 @@ class TarkibAdvertisementArchiveSerializer(serializers.ModelSerializer):
         read_only=True)
     tolovlar = TarkibAdvertisementArchiveShartnomaSummasiSerializer(source='tarkibtolovlar', many=True, read_only=True)
     jami_tolov = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
-    ijarachi = IjarachiSerializers(source='Ijarachi', read_only=True)
+    ijarachi = IjarachiLightSerializer(source='Ijarachi', read_only=True)
     ijarachi_contact = serializers.CharField(source='Ijarachi.contact_number', read_only=True)
     ijarachi_logo = serializers.ImageField(source='Ijarachi.logo', read_only=True)
     ijarachi_name = serializers.CharField(source='Ijarachi.name', read_only=True)
